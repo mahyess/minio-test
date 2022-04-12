@@ -1,0 +1,45 @@
+version: "3"
+services:
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - datastore:/data
+    env_file:
+      - .env
+    command: server /data --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME};
+      /usr/bin/mc policy set public myminio/${MINIO_BUCKET_NAME};
+      exit 0;
+      "
+  
+  main:
+    build:
+      dockerfile: ./Dockerfile
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+
+
+volumes:
+  datastore:
+    driver: local
+    driver_opts:
+      device: /dev/xvdb
+      o: "size=10G,nr_inodes=102400"
+      type: tmpfs
